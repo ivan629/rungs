@@ -1,4 +1,4 @@
----
+    ---
 name: mission
 description: Goal-aware mission control — reads mission/mission.json, collects the metrics a script can't reach (MCP, browser, manual), detects stalled gates, brainstorms strategy changes, maintains the task ledger, and rebuilds the local progress page. Run on "/mission" or "how am I doing against the goal".
 ---
@@ -126,9 +126,9 @@ revision.
   with its `when`. Not a list — one. If you can't pick one, the board is
   wrong; fix the board.
 - **Weekly receipt** (once per calendar week, when asked or when the last one
-  is >7 days old): draft a short public progress note from the timeline —
-  inputs done, outcomes moved, what changed, what's next. Real numbers only,
-  misses included. The user posts it where their audience is; recording +
+  is >7 days old): `npm run mission -- --receipt` drafts it from the ledger —
+  inputs done, outcomes moved, misses, what changed, next action. Polish the
+  wording; never touch the numbers. The user posts it where their audience is; recording +
   public reporting is the strongest form of progress monitoring, and it
   doubles as build-in-public content.
 - Append what happened to the events file configured in `mission.json`

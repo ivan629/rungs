@@ -243,11 +243,11 @@ function daysFlat(points, now2) {
   }
   return daysBetween(points[0]?.ts ?? now2, now2);
 }
-function sparkline(points) {
+function sparkline(points, target) {
   if (points.length < 2) return `<div class="spark empty">not enough history yet</div>`;
   const values = points.map((p) => p.value);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const min = Math.min(...values, ...target != null ? [target] : []);
+  const max = Math.max(...values, ...target != null ? [target] : []);
   const span = max - min || 1;
   const width = 160;
   const height = 32;
@@ -256,12 +256,21 @@ function sparkline(points) {
     const y = height - (point.value - min) / span * height;
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(" ");
-  return `<svg class="spark" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${coords}" /></svg>`;
+  const goal = target == null ? "" : `<line class="goal" x1="0" x2="${width}" y1="${(height - (target - min) / span * height).toFixed(1)}" y2="${(height - (target - min) / span * height).toFixed(1)}" />`;
+  return `<svg class="spark" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">${goal}<polyline points="${coords}" /></svg>`;
 }
 function fmt(value, unit) {
   if (value === null) return "\u2014";
   const rounded = Number.isInteger(value) ? String(value) : value.toFixed(1);
   return unit ? `${rounded}${unit}` : rounded;
+}
+function unconfigured(mission2) {
+  return mission2.goal.statement.includes("MY-PRODUCT");
+}
+function pickNextAction(tasks, activeGateId) {
+  const open2 = tasks.filter((task) => task.owner === "human" && task.status !== "done");
+  const score = (task) => (task.status === "doing" ? 4 : 0) + (task.gate === activeGateId && activeGateId ? 2 : 0) + (task.when ? 1 : 0);
+  return open2.sort((a, b) => score(b) - score(a) || a.created.localeCompare(b.created))[0] ?? null;
 }
 function metricCard(metric, snapshots, now2) {
   const points = seriesOf(snapshots, metric.id);
@@ -275,7 +284,7 @@ function metricCard(metric, snapshots, now2) {
   return `<article class="card${metric.blocked ? " is-blocked" : ""}">
   <h3>${esc(metric.label)} ${kind} ${tier} ${stale}</h3>
   <p class="value">${value} ${target}</p>
-  ${sparkline(points)}
+  ${sparkline(points, metric.target)}
   ${problem}
 </article>`;
 }
@@ -345,6 +354,9 @@ function taskColumn(tasks, owner, title) {
 </div>`;
 }
 function summarize(mission2, snapshots, now2) {
+  if (unconfigured(mission2)) {
+    return "mission: not configured \u2014 run /mission init in your agent (it scans the repo, asks 3 questions, writes mission.json), or edit mission/mission.json.";
+  }
   const goal = latestOf(snapshots, mission2.goal.metric);
   const daysLeft = daysBetween(now2, mission2.goal.deadline);
   const lines = [];
@@ -369,30 +381,7 @@ function summarize(mission2, snapshots, now2) {
   }
   return lines.join("\n");
 }
-function render(input) {
-  const { mission: mission2, snapshots, tasks, revisions, events, now: now2 } = input;
-  const goal = latestOf(snapshots, mission2.goal.metric);
-  const goalValue = goal.value ?? 0;
-  const goalPct = Math.max(0, Math.min(100, goalValue / mission2.goal.target * 100));
-  const daysLeft = daysBetween(now2, mission2.goal.deadline);
-  const activeIndex = (() => {
-    for (let i = 0; i < mission2.gates.length; i++) {
-      const gate = mission2.gates[i];
-      if (!gate) continue;
-      const value = latestOf(snapshots, gate.metric).value ?? 0;
-      if (value < gate.target) return i;
-    }
-    return mission2.gates.length;
-  })();
-  const activeGate = mission2.gates[activeIndex];
-  const activeMetric = activeGate ? mission2.metrics.find((m) => m.id === activeGate.metric) : void 0;
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mission \u2014 ${esc(mission2.goal.statement)}</title>
-<style>
+var STYLES = `
 :root { --bg:#fbfaf8; --fg:#1a1a19; --dim:#6b6a66; --line:#e3e0da; --card:#fff; --accent:#2e6f5e; --warn:#b25049; --up:#2e8b5f; --down:#b25049; }
 @media (prefers-color-scheme: dark) { :root { --bg:#131312; --fg:#eceae5; --dim:#8f8d87; --line:#2a2926; --card:#1b1a18; --accent:#5fb89b; } }
 * { box-sizing:border-box; }
@@ -402,9 +391,18 @@ h1 { font-size:1.5rem; margin:0 0 .25rem; letter-spacing:-.01em; }
 h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.09em; color:var(--dim); margin:2.75rem 0 .85rem; font-weight:600; }
 h3 { font-size:.9rem; margin:0 0 .4rem; font-weight:600; }
 .sub { color:var(--dim); margin:0 0 1.5rem; font-size:.9rem; }
+.status { font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; font-weight:600; border-radius:5px; padding:.12rem .42rem; vertical-align:middle; }
+.status-ok { color:var(--accent); border:1px solid var(--accent); }
+.status-warn { color:var(--warn); border:1px solid var(--warn); }
+.status-dim { color:var(--dim); border:1px solid var(--line); }
 .hero { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:1.4rem 1.5rem; }
 .hero .big { font-size:2.6rem; font-weight:600; letter-spacing:-.02em; line-height:1.1; }
 .hero .big small { font-size:1rem; color:var(--dim); font-weight:400; }
+.next { border:1.5px solid var(--accent); background:var(--card); border-radius:14px; padding:1rem 1.5rem; margin-top:.85rem; }
+.next-label { display:block; font-size:.68rem; text-transform:uppercase; letter-spacing:.09em; color:var(--accent); font-weight:600; margin-bottom:.3rem; }
+.next strong { font-size:1.05rem; }
+.next span { display:block; color:var(--dim); font-size:.82rem; margin-top:.25rem; }
+.next .next-when { font-style:italic; }
 .bar { height:7px; background:var(--line); border-radius:99px; overflow:hidden; margin-top:.6rem; }
 .bar span { display:block; height:100%; background:var(--accent); border-radius:99px; }
 .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(215px,1fr)); gap:.85rem; }
@@ -417,6 +415,7 @@ h3 { font-size:.9rem; margin:0 0 .4rem; font-weight:600; }
 .hero .big .none { font-size:1.25rem; letter-spacing:0; }
 .spark { width:100%; height:32px; display:block; }
 .spark polyline { fill:none; stroke:var(--accent); stroke-width:1.6; vector-effect:non-scaling-stroke; }
+.spark line.goal { stroke:var(--dim); stroke-width:1; stroke-dasharray:3 3; opacity:.55; vector-effect:non-scaling-stroke; }
 .spark.empty { font-size:.72rem; color:var(--dim); height:auto; }
 .tier { font-size:.62rem; text-transform:uppercase; letter-spacing:.06em; border:1px solid var(--line); border-radius:4px; padding:.05rem .3rem; color:var(--dim); vertical-align:middle; }
 .tier-browser, .tier-manual { border-color:var(--warn); color:var(--warn); }
@@ -454,21 +453,92 @@ ul.timeline { list-style:none; padding:0; margin:0; }
 .rev time { color:var(--dim); font-size:.75rem; display:block; }
 .rev p { margin:.2rem 0 0; color:var(--dim); }
 .empty { color:var(--dim); font-size:.85rem; }
+.setup { border:1.5px solid var(--accent); background:var(--card); border-radius:14px; padding:1.4rem 1.5rem; }
+.setup ol { margin:.75rem 0 0; padding-left:1.2rem; }
+.setup li { margin:.4rem 0; }
+.setup code { background:var(--bg); border:1px solid var(--line); border-radius:5px; padding:.1rem .35rem; font-size:.85em; }
 details summary { cursor:pointer; color:var(--dim); font-size:.8rem; margin:.4rem 0; }
 @media (max-width:620px) { .cols { grid-template-columns:1fr; } }
-</style>
+`;
+function page(title, body) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)}</title>
+<style>${STYLES}</style>
 </head>
 <body>
 <main>
-<h1>${esc(mission2.goal.statement)}</h1>
-<p class="sub">${daysLeft >= 0 ? `${daysLeft} days left` : `${-daysLeft} days past`} \xB7 deadline ${esc(mission2.goal.deadline)} \xB7 generated ${esc(now2.slice(0, 16).replace("T", " "))}</p>
+${body}
+</main>
+</body>
+</html>`;
+}
+function renderOnboarding(mission2, now2) {
+  const ladder = mission2.gates.map((gate) => `<li class="gate gate-locked"><div class="gate-head"><span class="gate-dot"></span><strong>${esc(gate.label)}</strong></div></li>`).join("");
+  return page(
+    "Mission \u2014 not set up yet",
+    `<h1>Mission is installed \u2014 not set up yet</h1>
+<p class="sub">generated ${esc(now2.slice(0, 16).replace("T", " "))}</p>
+<div class="setup">
+  <strong>Two minutes to your board:</strong>
+  <ol>
+    <li>In your coding agent, run <code>/mission init</code> \u2014 it scans this repo for bindable
+        sources (Stripe, Supabase, analytics, deployed URLs), asks you three questions,
+        and writes <code>mission/mission.json</code> for you.</li>
+    <li>No agent handy? Edit <code>mission/mission.json</code> yourself \u2014 the placeholder
+        ladder below is a working template; see the README for metric sources.</li>
+  </ol>
+</div>
+<h2>The ladder you'll climb</h2>
+<ul class="gates">${ladder}</ul>
+<p class="empty">Each gate is evidence the next one is worth building. Your goal, deadlines, and kill criteria replace these labels after init.</p>`
+  );
+}
+function render(input) {
+  const { mission: mission2, snapshots, tasks, revisions, events, now: now2 } = input;
+  if (unconfigured(mission2)) return renderOnboarding(mission2, now2);
+  const goal = latestOf(snapshots, mission2.goal.metric);
+  const goalValue = goal.value ?? 0;
+  const goalPct = Math.max(0, Math.min(100, goalValue / mission2.goal.target * 100));
+  const daysLeft = daysBetween(now2, mission2.goal.deadline);
+  const activeIndex = (() => {
+    for (let i = 0; i < mission2.gates.length; i++) {
+      const gate = mission2.gates[i];
+      if (!gate) continue;
+      const value = latestOf(snapshots, gate.metric).value ?? 0;
+      if (value < gate.target) return i;
+    }
+    return mission2.gates.length;
+  })();
+  const activeGate = mission2.gates[activeIndex];
+  const activeMetric = activeGate ? mission2.metrics.find((m) => m.id === activeGate.metric) : void 0;
+  const flat = activeGate ? daysFlat(seriesOf(snapshots, activeGate.metric), now2) : null;
+  const stallLimit = activeGate?.stallDays ?? mission2.stallDays;
+  const stalled = flat !== null && flat >= stallLimit;
+  const gateValue = activeGate ? latestOf(snapshots, activeGate.metric).value : null;
+  const status = !activeGate ? `<span class="status status-ok">all gates cleared</span>` : daysLeft < 0 ? `<span class="status status-warn">past deadline</span>` : stalled ? `<span class="status status-warn">stalled ${flat}d</span>` : gateValue === null ? `<span class="status status-dim">no data yet</span>` : `<span class="status status-ok">on track</span>`;
+  const next = pickNextAction(tasks, activeGate?.id);
+  const nextCard = `<div class="next">
+  <span class="next-label">Your one next action</span>
+  ${next ? `<strong>${esc(next.title)}</strong>${next.when ? `<span class="next-when">when: ${esc(next.when)}</span>` : ""}${next.why ? `<span>${esc(next.why)}</span>` : ""}` : `<strong class="none">none set</strong><span>run /mission in your agent \u2014 every run should end with exactly one</span>`}
+</div>`;
+  return page(
+    `Mission \u2014 ${mission2.goal.statement}`,
+    `<h1>${esc(mission2.goal.statement)}</h1>
+<p class="sub">${status} \xB7 ${daysLeft >= 0 ? `${daysLeft} days left` : `${-daysLeft} days past`} \xB7 deadline ${esc(mission2.goal.deadline)} \xB7 generated ${esc(now2.slice(0, 16).replace("T", " "))}</p>
 
 <div class="hero">
   <div class="big">${goal.value === null ? `<span class="none">not measurable yet</span><small> \xB7 target ${mission2.goal.target}</small>` : `${fmt(goal.value)}<small> / ${mission2.goal.target}</small>`}</div>
   <div class="bar"><span style="width:${goalPct.toFixed(0)}%"></span></div>
   ${goal.value === null ? `<p class="blocked">${esc(mission2.metrics.find((m) => m.id === mission2.goal.metric)?.blocked ?? "not collectable yet")}</p>` : ""}
   ${activeGate ? `<p class="blocked">Active gate: <strong>${esc(activeGate.label)}</strong> \u2014 advanced by ${esc(activeMetric?.label ?? activeGate.metric)}.</p>` : `<p class="blocked">All gates cleared.</p>`}
+  ${stalled ? `<p class="stall">stalled \u2014 ${flat} days without movement (limit ${stallLimit}). Strategy for this gate needs revisiting.</p>` : ""}
 </div>
+
+${nextCard}
 
 <h2>Gates</h2>
 <ul class="gates">${mission2.gates.map((gate, i) => gateRow(gate, mission2, snapshots, now2, i, activeIndex)).join("")}</ul>
@@ -483,10 +553,74 @@ details summary { cursor:pointer; color:var(--dim); font-size:.8rem; margin:.4re
 ${timeline(snapshots, events, revisions, mission2, now2)}
 
 <h2>Strategy revisions</h2>
-${revisions.slice().reverse().map((r) => `<div class="rev"><time>${esc(r.ts)}</time><strong>${esc(r.change)}</strong><p>${esc(r.evidence)}</p></div>`).join("") || `<p class="empty">No revisions logged.</p>`}
-</main>
-</body>
-</html>`;
+${revisions.slice().reverse().map((r) => `<div class="rev"><time>${esc(r.ts)}</time><strong>${esc(r.change)}</strong><p>${esc(r.evidence)}</p></div>`).join("") || `<p class="empty">No revisions logged.</p>`}`
+  );
+}
+
+// mission/core/receipt.ts
+var WINDOW_DAYS = 7;
+function fmt2(value) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+function valuesBefore(snapshots, cutoff) {
+  const known = /* @__PURE__ */ new Map();
+  for (const snapshot of snapshots) {
+    if (snapshot.ts >= cutoff) continue;
+    for (const reading of snapshot.readings) {
+      if (reading.value !== null) known.set(reading.id, reading.value);
+    }
+  }
+  return known;
+}
+function metricLine(metric, was, current) {
+  const unit = metric.unit ?? "";
+  if (was === void 0 || was === current) return `- ${metric.label}: ${fmt2(current)}${unit}${was === current ? " (no change)" : ""}`;
+  const delta = current - was;
+  return `- ${metric.label}: ${fmt2(was)}${unit} \u2192 ${fmt2(current)}${unit} (${delta > 0 ? "+" : ""}${fmt2(delta)})`;
+}
+function receipt(input) {
+  const { mission: mission2, snapshots, tasks, revisions, events, now: now2 } = input;
+  const start = new Date(Date.parse(now2) - WINDOW_DAYS * 864e5).toISOString();
+  const startDay = start.slice(0, 10);
+  const today = now2.slice(0, 10);
+  const before = valuesBefore(snapshots, start);
+  const current = valuesBefore(snapshots, "9999-12-31");
+  const section = (kind) => mission2.metrics.filter((m) => m.kind === kind && current.has(m.id)).map((m) => metricLine(m, before.get(m.id), current.get(m.id)));
+  const inputs = section("input");
+  const outcomes = section("outcome");
+  const misses = mission2.metrics.filter((m) => !current.has(m.id)).map((m) => {
+    const last = snapshots[snapshots.length - 1]?.readings.find((r) => r.id === m.id);
+    return `- ${m.label}: not measured \u2014 ${m.blocked ?? last?.error ?? "no reading yet"}`;
+  });
+  const changed = [
+    ...events.filter((e) => e.date >= startDay).map((e) => `- ${e.date} \u2014 ${e.text}`),
+    ...revisions.filter((r) => r.ts.slice(0, 10) >= startDay).map((r) => `- ${r.ts.slice(0, 10)} \u2014 strategy change: ${r.change} (${r.evidence})`)
+  ];
+  const goalValue = current.get(mission2.goal.metric);
+  const daysLeft = Math.round((Date.parse(mission2.goal.deadline) - Date.parse(now2)) / 864e5);
+  const activeGate = mission2.gates.find((gate) => (current.get(gate.metric) ?? 0) < gate.target);
+  const next = pickNextAction(tasks, activeGate?.id);
+  const lines = [
+    `## Week receipt \u2014 ${mission2.goal.statement}`,
+    `${startDay} \u2192 ${today} \xB7 ${goalValue === void 0 ? "goal not measurable yet" : `goal ${fmt2(goalValue)}/${mission2.goal.target}`} \xB7 ${daysLeft >= 0 ? `${daysLeft}d left` : `${-daysLeft}d past deadline`}`,
+    "",
+    "**Inputs (work done)**",
+    ...inputs.length ? inputs : ["- none recorded \u2014 that IS the diagnosis if outcomes are flat"],
+    "",
+    "**Outcomes (what the world did)**",
+    ...outcomes.length ? outcomes : ["- none recorded"]
+  ];
+  if (misses.length) lines.push("", "**Not measured**", ...misses);
+  lines.push("", "**What changed**", ...changed.length ? changed : ["- quiet week \u2014 nothing logged"]);
+  lines.push(
+    "",
+    "**Next**",
+    next ? `- ${next.title}${next.when ? ` (when: ${next.when})` : ""}` : "- no next action set",
+    "",
+    "\u2014",
+    "Real numbers, misses included. Tracked with mission \u2192 https://github.com/ivan629/mission"
+  );
+  return lines.join("\n");
 }
 
 // mission/cli.ts
@@ -537,16 +671,33 @@ if (has("--discover")) {
     const [id, raw] = pair.split("=");
     if (!id || raw === void 0) throw new Error(`--set expects id=value, got "${pair}"`);
     if (!mission.metrics.some((metric) => metric.id === id)) throw new Error(`unknown metric "${id}"`);
-    return { id, value: Number(raw), tier };
+    const value = Number(raw);
+    if (!Number.isFinite(value)) throw new Error(`--set ${id}: "${raw}" is not a number \u2014 nothing written`);
+    return { id, value, tier };
   });
   appendJsonl("metrics.jsonl", { ts: now, readings });
   for (const reading of readings) console.log(`  \u2713 ${reading.id} = ${reading.value}  (${tier})`);
   open(build());
 } else if (has("--render-only")) {
   open(build());
+} else if (has("--receipt")) {
+  const text = receipt({
+    mission,
+    snapshots: readJsonl("metrics.jsonl"),
+    tasks: readJsonl("tasks.jsonl"),
+    revisions: readJsonl("strategy.jsonl"),
+    events: loadEvents(mission),
+    now
+  });
+  console.log(text);
+  console.log(`
+${writeOut("receipt.md", text)}`);
 } else if (has("--brief")) {
-  const readings = await Promise.all(mission.metrics.map((metric) => collect(metric)));
-  appendJsonl("metrics.jsonl", { ts: now, readings });
+  const last = readJsonl("metrics.jsonl").at(-1);
+  if (!last || Date.parse(now) - Date.parse(last.ts) > 12 * 36e5) {
+    const readings = await Promise.all(mission.metrics.map((metric) => collect(metric)));
+    appendJsonl("metrics.jsonl", { ts: now, readings });
+  }
   build(true);
   console.log(summarize(mission, readJsonl("metrics.jsonl"), now));
 } else {

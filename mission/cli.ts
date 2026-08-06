@@ -1,7 +1,8 @@
 // npm run mission            collect → append a snapshot → render → open
 // npm run mission -- --render-only   rebuild the page from stored data (offline)
 // npm run mission -- --dry           show what collectors return, write nothing
-// npm run mission -- --brief         collect + snapshot, print the 3-line verdict (for hooks)
+// npm run mission -- --brief         collect (if stale) + snapshot, print the 3-line verdict (for hooks)
+// npm run mission -- --receipt       draft the weekly build-in-public receipt from stored data
 // npm run mission -- --set x_followers=41 --tier browser
 // npm run mission -- --discover      re-scan the project for bindable sources
 
@@ -10,6 +11,7 @@ import { collect } from "./core/collect.js";
 import { loadMission } from "./core/config.js";
 import { describe, discover } from "./core/discover.js";
 import { loadEvents } from "./core/events.js";
+import { receipt } from "./core/receipt.js";
 import { render, summarize } from "./core/render.js";
 import { appendJsonl, readJsonl, writeOut } from "./core/store.js";
 import type { Reading, Revision, Snapshot, Task, Tier } from "./core/types.js";
@@ -66,16 +68,34 @@ if (has("--discover")) {
     const [id, raw] = pair.split("=");
     if (!id || raw === undefined) throw new Error(`--set expects id=value, got "${pair}"`);
     if (!mission.metrics.some((metric) => metric.id === id)) throw new Error(`unknown metric "${id}"`);
-    return { id, value: Number(raw), tier };
+    const value = Number(raw);
+    if (!Number.isFinite(value)) throw new Error(`--set ${id}: "${raw}" is not a number — nothing written`);
+    return { id, value, tier };
   });
   appendJsonl("metrics.jsonl", { ts: now, readings } satisfies Snapshot);
   for (const reading of readings) console.log(`  ✓ ${reading.id} = ${reading.value}  (${tier})`);
   open(build());
 } else if (has("--render-only")) {
   open(build());
+} else if (has("--receipt")) {
+  const text = receipt({
+    mission,
+    snapshots: readJsonl<Snapshot>("metrics.jsonl"),
+    tasks: readJsonl<Task>("tasks.jsonl"),
+    revisions: readJsonl<Revision>("strategy.jsonl"),
+    events: loadEvents(mission),
+    now,
+  });
+  console.log(text);
+  console.log(`\n${writeOut("receipt.md", text)}`);
 } else if (has("--brief")) {
-  const readings = await Promise.all(mission.metrics.map((metric) => collect(metric)));
-  appendJsonl("metrics.jsonl", { ts: now, readings } satisfies Snapshot);
+  // Runs on every SessionStart hook — skip the network when the last snapshot
+  // is fresh so an offline laptop or a slow API never taxes session start.
+  const last = readJsonl<Snapshot>("metrics.jsonl").at(-1);
+  if (!last || Date.parse(now) - Date.parse(last.ts) > 12 * 3_600_000) {
+    const readings = await Promise.all(mission.metrics.map((metric) => collect(metric)));
+    appendJsonl("metrics.jsonl", { ts: now, readings } satisfies Snapshot);
+  }
   build(true);
   console.log(summarize(mission, readJsonl<Snapshot>("metrics.jsonl"), now));
 } else {

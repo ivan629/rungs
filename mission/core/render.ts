@@ -54,11 +54,11 @@ function daysFlat(points: Point[], now: string): number | null {
   return daysBetween(points[0]?.ts ?? now, now);
 }
 
-function sparkline(points: Point[]): string {
+function sparkline(points: Point[], target?: number | null): string {
   if (points.length < 2) return `<div class="spark empty">not enough history yet</div>`;
   const values = points.map((p) => p.value);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const min = Math.min(...values, ...(target != null ? [target] : []));
+  const max = Math.max(...values, ...(target != null ? [target] : []));
   const span = max - min || 1;
   const width = 160;
   const height = 32;
@@ -69,13 +69,33 @@ function sparkline(points: Point[]): string {
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .join(" ");
-  return `<svg class="spark" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${coords}" /></svg>`;
+  const goal =
+    target == null
+      ? ""
+      : `<line class="goal" x1="0" x2="${width}" y1="${(height - ((target - min) / span) * height).toFixed(1)}" y2="${(height - ((target - min) / span) * height).toFixed(1)}" />`;
+  return `<svg class="spark" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">${goal}<polyline points="${coords}" /></svg>`;
 }
 
 function fmt(value: number | null, unit?: string): string {
   if (value === null) return "—";
   const rounded = Number.isInteger(value) ? String(value) : value.toFixed(1);
   return unit ? `${rounded}${unit}` : rounded;
+}
+
+/** The starter mission.json ships with this placeholder until /mission init runs. */
+export function unconfigured(mission: Mission): boolean {
+  return mission.goal.statement.includes("MY-PRODUCT");
+}
+
+/**
+ * The one human-owned task the page leads with. Preference order: already
+ * `doing` > advances the active gate > has an if-then `when` > oldest.
+ */
+export function pickNextAction(tasks: Task[], activeGateId?: string): Task | null {
+  const open = tasks.filter((task) => task.owner === "human" && task.status !== "done");
+  const score = (task: Task): number =>
+    (task.status === "doing" ? 4 : 0) + (task.gate === activeGateId && activeGateId ? 2 : 0) + (task.when ? 1 : 0);
+  return open.sort((a, b) => score(b) - score(a) || a.created.localeCompare(b.created))[0] ?? null;
 }
 
 function metricCard(metric: MetricDef, snapshots: Snapshot[], now: string): string {
@@ -96,7 +116,7 @@ function metricCard(metric: MetricDef, snapshots: Snapshot[], now: string): stri
   return `<article class="card${metric.blocked ? " is-blocked" : ""}">
   <h3>${esc(metric.label)} ${kind} ${tier} ${stale}</h3>
   <p class="value">${value} ${target}</p>
-  ${sparkline(points)}
+  ${sparkline(points, metric.target)}
   ${problem}
 </article>`;
 }
@@ -189,6 +209,9 @@ function taskColumn(tasks: Task[], owner: "agent" | "human", title: string): str
  * Designed to land in an agent's context at session start.
  */
 export function summarize(mission: Mission, snapshots: Snapshot[], now: string): string {
+  if (unconfigured(mission)) {
+    return "mission: not configured — run /mission init in your agent (it scans the repo, asks 3 questions, writes mission.json), or edit mission/mission.json.";
+  }
   const goal = latestOf(snapshots, mission.goal.metric);
   const daysLeft = daysBetween(now, mission.goal.deadline);
   const lines: string[] = [];
@@ -220,39 +243,7 @@ export function summarize(mission: Mission, snapshots: Snapshot[], now: string):
   return lines.join("\n");
 }
 
-export function render(input: {
-  mission: Mission;
-  snapshots: Snapshot[];
-  tasks: Task[];
-  revisions: Revision[];
-  events: EventItem[];
-  now: string;
-}): string {
-  const { mission, snapshots, tasks, revisions, events, now } = input;
-  const goal = latestOf(snapshots, mission.goal.metric);
-  const goalValue = goal.value ?? 0;
-  const goalPct = Math.max(0, Math.min(100, (goalValue / mission.goal.target) * 100));
-  const daysLeft = daysBetween(now, mission.goal.deadline);
-
-  const activeIndex = (() => {
-    for (let i = 0; i < mission.gates.length; i++) {
-      const gate = mission.gates[i];
-      if (!gate) continue;
-      const value = latestOf(snapshots, gate.metric).value ?? 0;
-      if (value < gate.target) return i;
-    }
-    return mission.gates.length;
-  })();
-  const activeGate = mission.gates[activeIndex];
-  const activeMetric = activeGate ? mission.metrics.find((m) => m.id === activeGate.metric) : undefined;
-
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mission — ${esc(mission.goal.statement)}</title>
-<style>
+const STYLES = `
 :root { --bg:#fbfaf8; --fg:#1a1a19; --dim:#6b6a66; --line:#e3e0da; --card:#fff; --accent:#2e6f5e; --warn:#b25049; --up:#2e8b5f; --down:#b25049; }
 @media (prefers-color-scheme: dark) { :root { --bg:#131312; --fg:#eceae5; --dim:#8f8d87; --line:#2a2926; --card:#1b1a18; --accent:#5fb89b; } }
 * { box-sizing:border-box; }
@@ -262,9 +253,18 @@ h1 { font-size:1.5rem; margin:0 0 .25rem; letter-spacing:-.01em; }
 h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.09em; color:var(--dim); margin:2.75rem 0 .85rem; font-weight:600; }
 h3 { font-size:.9rem; margin:0 0 .4rem; font-weight:600; }
 .sub { color:var(--dim); margin:0 0 1.5rem; font-size:.9rem; }
+.status { font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; font-weight:600; border-radius:5px; padding:.12rem .42rem; vertical-align:middle; }
+.status-ok { color:var(--accent); border:1px solid var(--accent); }
+.status-warn { color:var(--warn); border:1px solid var(--warn); }
+.status-dim { color:var(--dim); border:1px solid var(--line); }
 .hero { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:1.4rem 1.5rem; }
 .hero .big { font-size:2.6rem; font-weight:600; letter-spacing:-.02em; line-height:1.1; }
 .hero .big small { font-size:1rem; color:var(--dim); font-weight:400; }
+.next { border:1.5px solid var(--accent); background:var(--card); border-radius:14px; padding:1rem 1.5rem; margin-top:.85rem; }
+.next-label { display:block; font-size:.68rem; text-transform:uppercase; letter-spacing:.09em; color:var(--accent); font-weight:600; margin-bottom:.3rem; }
+.next strong { font-size:1.05rem; }
+.next span { display:block; color:var(--dim); font-size:.82rem; margin-top:.25rem; }
+.next .next-when { font-style:italic; }
 .bar { height:7px; background:var(--line); border-radius:99px; overflow:hidden; margin-top:.6rem; }
 .bar span { display:block; height:100%; background:var(--accent); border-radius:99px; }
 .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(215px,1fr)); gap:.85rem; }
@@ -277,6 +277,7 @@ h3 { font-size:.9rem; margin:0 0 .4rem; font-weight:600; }
 .hero .big .none { font-size:1.25rem; letter-spacing:0; }
 .spark { width:100%; height:32px; display:block; }
 .spark polyline { fill:none; stroke:var(--accent); stroke-width:1.6; vector-effect:non-scaling-stroke; }
+.spark line.goal { stroke:var(--dim); stroke-width:1; stroke-dasharray:3 3; opacity:.55; vector-effect:non-scaling-stroke; }
 .spark.empty { font-size:.72rem; color:var(--dim); height:auto; }
 .tier { font-size:.62rem; text-transform:uppercase; letter-spacing:.06em; border:1px solid var(--line); border-radius:4px; padding:.05rem .3rem; color:var(--dim); vertical-align:middle; }
 .tier-browser, .tier-manual { border-color:var(--warn); color:var(--warn); }
@@ -314,14 +315,116 @@ ul.timeline { list-style:none; padding:0; margin:0; }
 .rev time { color:var(--dim); font-size:.75rem; display:block; }
 .rev p { margin:.2rem 0 0; color:var(--dim); }
 .empty { color:var(--dim); font-size:.85rem; }
+.setup { border:1.5px solid var(--accent); background:var(--card); border-radius:14px; padding:1.4rem 1.5rem; }
+.setup ol { margin:.75rem 0 0; padding-left:1.2rem; }
+.setup li { margin:.4rem 0; }
+.setup code { background:var(--bg); border:1px solid var(--line); border-radius:5px; padding:.1rem .35rem; font-size:.85em; }
 details summary { cursor:pointer; color:var(--dim); font-size:.8rem; margin:.4rem 0; }
 @media (max-width:620px) { .cols { grid-template-columns:1fr; } }
-</style>
+`;
+
+function page(title: string, body: string): string {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)}</title>
+<style>${STYLES}</style>
 </head>
 <body>
 <main>
-<h1>${esc(mission.goal.statement)}</h1>
-<p class="sub">${daysLeft >= 0 ? `${daysLeft} days left` : `${-daysLeft} days past`} · deadline ${esc(mission.goal.deadline)} · generated ${esc(now.slice(0, 16).replace("T", " "))}</p>
+${body}
+</main>
+</body>
+</html>`;
+}
+
+/**
+ * Pre-init state: the placeholder mission renders as a guided setup page, not a
+ * wall of grayed-out metric cards — the blocked cards only earn their place
+ * once they represent real wiring debt on a real goal.
+ */
+function renderOnboarding(mission: Mission, now: string): string {
+  const ladder = mission.gates.map((gate) => `<li class="gate gate-locked"><div class="gate-head"><span class="gate-dot"></span><strong>${esc(gate.label)}</strong></div></li>`).join("");
+  return page(
+    "Mission — not set up yet",
+    `<h1>Mission is installed — not set up yet</h1>
+<p class="sub">generated ${esc(now.slice(0, 16).replace("T", " "))}</p>
+<div class="setup">
+  <strong>Two minutes to your board:</strong>
+  <ol>
+    <li>In your coding agent, run <code>/mission init</code> — it scans this repo for bindable
+        sources (Stripe, Supabase, analytics, deployed URLs), asks you three questions,
+        and writes <code>mission/mission.json</code> for you.</li>
+    <li>No agent handy? Edit <code>mission/mission.json</code> yourself — the placeholder
+        ladder below is a working template; see the README for metric sources.</li>
+  </ol>
+</div>
+<h2>The ladder you'll climb</h2>
+<ul class="gates">${ladder}</ul>
+<p class="empty">Each gate is evidence the next one is worth building. Your goal, deadlines, and kill criteria replace these labels after init.</p>`,
+  );
+}
+
+export function render(input: {
+  mission: Mission;
+  snapshots: Snapshot[];
+  tasks: Task[];
+  revisions: Revision[];
+  events: EventItem[];
+  now: string;
+}): string {
+  const { mission, snapshots, tasks, revisions, events, now } = input;
+  if (unconfigured(mission)) return renderOnboarding(mission, now);
+
+  const goal = latestOf(snapshots, mission.goal.metric);
+  const goalValue = goal.value ?? 0;
+  const goalPct = Math.max(0, Math.min(100, (goalValue / mission.goal.target) * 100));
+  const daysLeft = daysBetween(now, mission.goal.deadline);
+
+  const activeIndex = (() => {
+    for (let i = 0; i < mission.gates.length; i++) {
+      const gate = mission.gates[i];
+      if (!gate) continue;
+      const value = latestOf(snapshots, gate.metric).value ?? 0;
+      if (value < gate.target) return i;
+    }
+    return mission.gates.length;
+  })();
+  const activeGate = mission.gates[activeIndex];
+  const activeMetric = activeGate ? mission.metrics.find((m) => m.id === activeGate.metric) : undefined;
+
+  const flat = activeGate ? daysFlat(seriesOf(snapshots, activeGate.metric), now) : null;
+  const stallLimit = activeGate?.stallDays ?? mission.stallDays;
+  const stalled = flat !== null && flat >= stallLimit;
+  const gateValue = activeGate ? latestOf(snapshots, activeGate.metric).value : null;
+  const status = !activeGate
+    ? `<span class="status status-ok">all gates cleared</span>`
+    : daysLeft < 0
+      ? `<span class="status status-warn">past deadline</span>`
+      : stalled
+        ? `<span class="status status-warn">stalled ${flat}d</span>`
+        : gateValue === null
+          ? `<span class="status status-dim">no data yet</span>`
+          : `<span class="status status-ok">on track</span>`;
+
+  const next = pickNextAction(tasks, activeGate?.id);
+  const nextCard = `<div class="next">
+  <span class="next-label">Your one next action</span>
+  ${
+    next
+      ? `<strong>${esc(next.title)}</strong>${next.when ? `<span class="next-when">when: ${esc(next.when)}</span>` : ""}${
+          next.why ? `<span>${esc(next.why)}</span>` : ""
+        }`
+      : `<strong class="none">none set</strong><span>run /mission in your agent — every run should end with exactly one</span>`
+  }
+</div>`;
+
+  return page(
+    `Mission — ${mission.goal.statement}`,
+    `<h1>${esc(mission.goal.statement)}</h1>
+<p class="sub">${status} · ${daysLeft >= 0 ? `${daysLeft} days left` : `${-daysLeft} days past`} · deadline ${esc(mission.goal.deadline)} · generated ${esc(now.slice(0, 16).replace("T", " "))}</p>
 
 <div class="hero">
   <div class="big">${
@@ -332,7 +435,10 @@ details summary { cursor:pointer; color:var(--dim); font-size:.8rem; margin:.4re
   <div class="bar"><span style="width:${goalPct.toFixed(0)}%"></span></div>
   ${goal.value === null ? `<p class="blocked">${esc(mission.metrics.find((m) => m.id === mission.goal.metric)?.blocked ?? "not collectable yet")}</p>` : ""}
   ${activeGate ? `<p class="blocked">Active gate: <strong>${esc(activeGate.label)}</strong> — advanced by ${esc(activeMetric?.label ?? activeGate.metric)}.</p>` : `<p class="blocked">All gates cleared.</p>`}
+  ${stalled ? `<p class="stall">stalled — ${flat} days without movement (limit ${stallLimit}). Strategy for this gate needs revisiting.</p>` : ""}
 </div>
+
+${nextCard}
 
 <h2>Gates</h2>
 <ul class="gates">${mission.gates.map((gate, i) => gateRow(gate, mission, snapshots, now, i, activeIndex)).join("")}</ul>
@@ -351,8 +457,6 @@ ${revisions
   .slice()
   .reverse()
   .map((r) => `<div class="rev"><time>${esc(r.ts)}</time><strong>${esc(r.change)}</strong><p>${esc(r.evidence)}</p></div>`)
-  .join("") || `<p class="empty">No revisions logged.</p>`}
-</main>
-</body>
-</html>`;
+  .join("") || `<p class="empty">No revisions logged.</p>`}`,
+  );
 }

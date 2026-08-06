@@ -1,12 +1,18 @@
 # Mission
 
+**Your coding agent already writes the code. Mission makes it accountable for
+the launch.**
+
 Local-first, agent-native mission control for solo products. One goal, the
 gates between you and it, evidence-only metrics over time, and stall detection
 that forces a strategy conversation — as a git-tracked folder and a single
 HTML page. Nothing deploys, nothing is a service, nothing phones home.
 
-Built for people building alone with a coding agent: the agent already writes
-your code — this makes it accountable for the *launch*.
+![The mission board](https://raw.githubusercontent.com/ivan629/mission/main/docs/assets/board.png)
+
+The board answers three questions in the first screenful, in order: am I on
+track, what's in the way, and what is my **one next action**. Everything else
+— gates, metrics, tasks, timeline — is supporting detail below it.
 
 ## Install (in your product's repo)
 
@@ -37,14 +43,20 @@ CLI and files are agent-agnostic.
 
 ```
 npm run mission                  # collect → append snapshot → render → open
-npm run mission -- --brief       # collect + snapshot, print 3-line verdict (hooks)
+npm run mission -- --brief       # print 3-line verdict; skips collection if the
+                                 # last snapshot is <12h old (safe as a hook)
+npm run mission -- --receipt     # draft the weekly build-in-public receipt
 npm run mission -- --render-only # rebuild the page from stored data (offline)
 npm run mission -- --dry         # show what collectors return, write nothing
 npm run mission -- --discover    # scan the host project for bindable sources
 npm run mission -- --set x_followers=41 --tier browser
 ```
 
-The page is `mission/out/index.html`.
+The page is `mission/out/index.html`; the receipt lands in
+`mission/out/receipt.md` — inputs done, outcomes moved (misses included),
+what changed, one next action. Post it where your audience is: recording +
+public reporting is the strongest form of progress monitoring, and it doubles
+as build-in-public content.
 
 ## Why it's shaped this way
 
@@ -153,7 +165,8 @@ freely; `git log` gives you a second timeline for free.
 
 The TypeScript source is `mission/cli.ts` + `mission/core/`; `npm run build`
 bundles it to `dist/cli.mjs` (what the installer ships). `npm run mission`
-here runs the source via tsx. Requires Node 20+.
+here runs the source via tsx; `npm test` runs the vitest suite. Requires
+Node 20+.
 
 **The extraction test:** nothing under `mission/core/` may import from a host
 project. If a metric needs project code, expose it as an npm script or an
