@@ -1,0 +1,109 @@
+{
+  "goal": {
+    "statement": "First 10 paying customers for MY-PRODUCT",
+    "metric": "paying_customers",
+    "target": 10,
+    "deadline": "2026-11-04"
+  },
+  "stallDays": 10,
+
+  "gates": [
+    {
+      "id": "shipped",
+      "label": "Live at a public URL",
+      "metric": "site_up",
+      "target": 1,
+      "deadline": "2026-09-03",
+      "kill": "not live in 4 weeks → cut scope in half and re-set the date; a smaller live thing beats a bigger local one"
+    },
+    {
+      "id": "users",
+      "label": "10 strangers used it",
+      "metric": "weekly_users",
+      "target": 10,
+      "stallDays": 7,
+      "kill": "under 10 after 30 distribution actions → the pitch or the pond is wrong; revise strategy before doing 30 more"
+    },
+    {
+      "id": "audience",
+      "label": "50 emails captured",
+      "metric": "subscribers",
+      "target": 50,
+      "stallDays": 10
+    },
+    {
+      "id": "proof",
+      "label": "3 users came back unprompted",
+      "metric": "returning_users",
+      "target": 3,
+      "kill": "50 signups and nobody returns by the goal deadline → retention problem, do not build the paid tier on top of it"
+    },
+    {
+      "id": "paid",
+      "label": "Paid tier selling",
+      "metric": "paying_customers",
+      "target": 10
+    }
+  ],
+
+  "metrics": [
+    {
+      "id": "site_up",
+      "label": "Site reachable",
+      "kind": "outcome",
+      "target": 1,
+      "direction": "up",
+      "blocked": "set your product URL — /mission init replaces this with a live curl check",
+      "sources": [
+        { "tier": "shell", "note": "curl -s -o /dev/null -w '%{http_code}' https://YOUR-URL with expr: Number(d) === 200 ? 1 : 0" }
+      ]
+    },
+    {
+      "id": "distribution_actions",
+      "label": "Distribution actions (7d)",
+      "kind": "input",
+      "direction": "up",
+      "sources": [
+        { "tier": "manual", "note": "posts, replies, DMs, emails sent to strangers this week — code does not count" }
+      ]
+    },
+    {
+      "id": "weekly_users",
+      "label": "Weekly active users",
+      "kind": "outcome",
+      "target": 10,
+      "direction": "up",
+      "blocked": "wire your analytics (Umami/Plausible/your own endpoint), then replace this with an http source",
+      "sources": [{ "tier": "http", "note": "e.g. ${API_URL}/stats with expr d.visitors" }]
+    },
+    {
+      "id": "subscribers",
+      "label": "Email subscribers",
+      "kind": "outcome",
+      "target": 50,
+      "direction": "up",
+      "blocked": "point this at your subscribers table or list provider API",
+      "sources": [{ "tier": "http", "note": "e.g. ${SUPABASE_URL}/rest/v1/subscribers?select=email with expr d.length" }]
+    },
+    {
+      "id": "returning_users",
+      "label": "Users returning weekly",
+      "kind": "outcome",
+      "target": 3,
+      "direction": "up",
+      "blocked": "needs per-user analytics — declare a source once one exists",
+      "sources": [{ "tier": "manual", "note": "count users seen in ≥2 different weeks" }]
+    },
+    {
+      "id": "paying_customers",
+      "label": "Paying customers",
+      "kind": "outcome",
+      "target": 10,
+      "direction": "up",
+      "blocked": "no billing yet — connect the Stripe MCP server the day it exists",
+      "sources": [{ "tier": "mcp", "note": "Stripe MCP: count active subscriptions" }]
+    }
+  ],
+
+  "events": { "file": "../docs/journal.md", "format": "dated-bullets" }
+}

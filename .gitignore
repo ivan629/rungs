@@ -1,0 +1,4 @@
+node_modules/
+mission/out/
+mission/capabilities.json
+.env
