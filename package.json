@@ -1,16 +1,16 @@
 {
-  "name": "create-mission",
+  "name": "create-rungs",
   "version": "0.1.0",
   "type": "module",
-  "description": "Local-first, agent-native mission control for solo products — goal, gates, evidence-only metrics, stall detection.",
+  "description": "Local-first, agent-native launch tracker for solo products — one goal, the gates to it, evidence-only metrics, stall detection.",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "mission": "tsx mission/cli.ts",
+    "rungs": "tsx rungs/cli.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "build": "esbuild mission/cli.ts --bundle --platform=node --format=esm --target=node20 --outfile=dist/cli.mjs",
+    "build": "esbuild rungs/cli.ts --bundle --platform=node --format=esm --target=node20 --outfile=dist/cli.mjs",
     "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
   "devDependencies": {
@@ -20,26 +20,27 @@
     "vitest": "^3.2.0"
   },
   "bin": {
-    "create-mission": "bin/create-mission.mjs"
+    "create-rungs": "bin/create-rungs.mjs"
   },
   "files": [
     "dist",
     "bin",
-    "mission/mission.json",
+    "rungs/mission.json",
     "docs/method.md",
     "docs/journal.md",
-    ".claude/skills/mission/SKILL.md",
+    ".claude/skills/rungs/SKILL.md",
     "README.md",
     "LICENSE"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ivan629/mission.git"
+    "url": "git+https://github.com/ivan629/rungs.git"
   },
-  "homepage": "https://github.com/ivan629/mission#readme",
+  "homepage": "https://github.com/ivan629/rungs#readme",
   "keywords": [
-    "mission-control",
+    "rungs",
+    "launch-tracker",
     "goals",
     "accountability",
     "solo-dev",

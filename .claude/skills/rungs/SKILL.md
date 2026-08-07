@@ -1,11 +1,11 @@
     ---
-name: mission
-description: Goal-aware mission control — reads mission/mission.json, collects the metrics a script can't reach (MCP, browser, manual), detects stalled gates, brainstorms strategy changes, maintains the task ledger, and rebuilds the local progress page. Run on "/mission" or "how am I doing against the goal".
+name: rungs
+description: Goal-aware launch tracking — reads rungs/mission.json, collects the metrics a script can't reach (MCP, browser, manual), detects stalled gates, brainstorms strategy changes, maintains the task ledger, and rebuilds the local progress page. Run on "/rungs" or "how am I doing against the goal".
 ---
 
-You run the goal loop. `npm run mission` collects tier 1–2 (http, shell) on
+You run the goal loop. `npm run rungs` collects tier 1–2 (http, shell) on
 its own; **you exist to collect tiers 3–5 and to think about what the numbers
-mean.** Everything lives in `mission/` — read the repo README if you haven't.
+mean.** Everything lives in `rungs/` — read the repo README if you haven't.
 
 Never invent a metric value. A null with a reason is correct; a plausible
 number is a lie that compounds across the whole timeline. Numbers you
@@ -14,12 +14,12 @@ values read live from a source this run.
 
 ## Phase 0 — Init (first run only)
 
-Trigger: the user says "/mission init", OR `mission/mission.json` still
+Trigger: the user says "/rungs init", OR `rungs/mission.json` still
 contains the placeholder `MY-PRODUCT`. The human never hand-writes
 mission.json — configuring it is YOUR job.
 
-1. **Scan before asking.** Run `npm run mission -- --discover`, then read
-   `mission/capabilities.json`, `package.json` (deps + scripts), and `.env`
+1. **Scan before asking.** Run `npm run rungs -- --discover`, then read
+   `rungs/capabilities.json`, `package.json` (deps + scripts), and `.env`
    **variable names only — never values**. Detect what's bindable:
    - `SUPABASE_URL` → subscribers/rows via the REST endpoint
    - Stripe keys or MCP → paying customers
@@ -41,17 +41,17 @@ mission.json — configuring it is YOUR job.
    before saving; they must be the user's own words by the end.
 4. **Offer the heartbeat, once.** Ask whether to add a SessionStart hook to
    `.claude/settings.json` so every session opens with the board's verdict:
-   `{"hooks": {"SessionStart": [{"hooks": [{"type": "command", "command": "npm run mission -- --brief"}]}]}}`
+   `{"hooks": {"SessionStart": [{"hooks": [{"type": "command", "command": "npm run rungs -- --brief"}]}]}}`
    Explain the tradeoff honestly (a few seconds at session start; metrics
    collected automatically). If yes, merge it in — don't clobber existing
    hooks.
-5. **Finish with proof.** Run `npm run mission`, show the board, and state
+5. **Finish with proof.** Run `npm run rungs`, show the board, and state
    the one next action. Init is done when the user has seen their own goal
    rendered — same session, no homework.
 
 ## Phase 1 — Collect
 
-1. `npm run mission -- --dry --no-open` — see what tier 1–2 produce and what
+1. `npm run rungs -- --dry --no-open` — see what tier 1–2 produce and what
    failed. A newly failing tier-1 metric is a defect, not a data gap: report it.
 2. For every metric reported `needs agent`, collect it now:
    - **mcp** — check whether the named server is connected (ToolSearch). If it
@@ -62,9 +62,9 @@ mission.json — configuring it is YOUR job.
      isn't reachable, say so plainly and skip — never estimate.
    - **manual** — ask the user, once, in a single batched question at the end
      of the run. Don't nag for every metric every day.
-3. Write what you collected: `npm run mission -- --set x_followers=41 --tier browser`
+3. Write what you collected: `npm run rungs -- --set x_followers=41 --tier browser`
    (repeat `--set` for several; one `--tier` applies to all in the call).
-4. `npm run mission -- --no-open` for the full snapshot + page rebuild.
+4. `npm run rungs -- --no-open` for the full snapshot + page rebuild.
 
 ## Phase 2 — Read the board
 
@@ -96,7 +96,7 @@ means the plan is wrong or the world changed. Then:
 2. Brainstorm 3 alternatives. Score each by: does it move THIS gate's metric,
    what does it cost, what would prove it wrong within a week.
 3. Recommend one. Present it — the user decides.
-4. On approval, append to `mission/data/strategy.jsonl`:
+4. On approval, append to `rungs/data/strategy.jsonl`:
    `{"ts":"YYYY-MM-DD","change":"…","evidence":"…"}`. Evidence is the numbers
    that forced the change, never a rationalisation written after the fact.
 
@@ -105,7 +105,7 @@ revision.
 
 ## Phase 4 — Tasks
 
-`mission/data/tasks.jsonl` is the ledger. Rules:
+`rungs/data/tasks.jsonl` is the ledger. Rules:
 
 - Every task carries `owner: "agent" | "human"` — the split is the point.
   Agent-owned means you can finish it in a session with no account access, no
@@ -126,7 +126,7 @@ revision.
   with its `when`. Not a list — one. If you can't pick one, the board is
   wrong; fix the board.
 - **Weekly receipt** (once per calendar week, when asked or when the last one
-  is >7 days old): `npm run mission -- --receipt` drafts it from the ledger —
+  is >7 days old): `npm run rungs -- --receipt` drafts it from the ledger —
   inputs done, outcomes moved, misses, what changed, next action. Polish the
   wording; never touch the numbers. The user posts it where their audience is; recording +
   public reporting is the strongest form of progress monitoring, and it
@@ -134,7 +134,7 @@ revision.
 - Append what happened to the events file configured in `mission.json`
   (`events.file`, dated bullets) — a good entry feeds the timeline, so it
   pays twice.
-- Refresh `mission/capabilities.json`'s `mcp` and `browser` arrays with what
+- Refresh `rungs/capabilities.json`'s `mcp` and `browser` arrays with what
   you actually found connected this run — the script can't see either.
 - If a metric moved to a better tier, note it: fragility going down is
   progress, and nothing else records it.
@@ -142,6 +142,6 @@ revision.
 ## Pairing with a daily loop
 
 If the project has a daily operating skill (a `/today` equivalent), it should
-open by reading `mission/mission.json` and close by triggering a snapshot.
-`/mission` decides whether the daily work is aimed at the right thing; the
+open by reading `rungs/mission.json` and close by triggering a snapshot.
+`/rungs` decides whether the daily work is aimed at the right thing; the
 daily loop decides what to do today.

@@ -1,4 +1,4 @@
 node_modules/
-mission/out/
-mission/capabilities.json
+rungs/out/
+rungs/capabilities.json
 .env

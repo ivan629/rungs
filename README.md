@@ -1,14 +1,14 @@
-# Mission
+# Rungs
 
-**Your coding agent already writes the code. Mission makes it accountable for
+**Your coding agent already writes the code. Rungs makes it accountable for
 the launch.**
 
-Local-first, agent-native mission control for solo products. One goal, the
-gates between you and it, evidence-only metrics over time, and stall detection
+Local-first, agent-native launch tracking for solo products. One goal, the
+rungs between you and it, evidence-only metrics over time, and stall detection
 that forces a strategy conversation — as a git-tracked folder and a single
 HTML page. Nothing deploys, nothing is a service, nothing phones home.
 
-![The mission board](https://raw.githubusercontent.com/ivan629/mission/main/docs/assets/board.png)
+![The Rungs board](https://raw.githubusercontent.com/ivan629/rungs/main/docs/assets/board.png)
 
 The board answers three questions in the first screenful, in order: am I on
 track, what's in the way, and what is my **one next action**. Everything else
@@ -17,16 +17,16 @@ track, what's in the way, and what is my **one next action**. Everything else
 ## Install (in your product's repo)
 
 ```
-npx create-mission
+npx create-rungs
 ```
 
-That drops a single bundled file (`mission/cli.mjs`, no dependencies added to
-your repo), a starter `mission.json`, the method docs, and the `/mission`
+That drops a single bundled file (`rungs/cli.mjs`, no dependencies added to
+your repo), a starter `mission.json`, the method docs, and the `/rungs`
 agent skill. Then:
 
-1. `npm run mission` — see the board immediately; it works before anything is
+1. `npm run rungs` — see the board immediately; it works before anything is
    wired (unmeasured metrics render as *null with a reason*, never zero).
-2. In your agent: **`/mission init`** — it scans the repo for bindable sources
+2. In your agent: **`/rungs init`** — it scans the repo for bindable sources
    (Supabase, Stripe, Umami/Plausible, your own API routes), asks you three
    questions, and **writes `mission.json` for you**. You never hand-edit JSON
    unless you want to.
@@ -36,24 +36,24 @@ agent skill. Then:
    to fight; the hook makes looking at progress the default, not a decision.
 
 Not using Claude Code? The skill is plain markdown — point any agent
-(Cursor, AGENTS.md-style setups) at `.claude/skills/mission/SKILL.md`; the
+(Cursor, AGENTS.md-style setups) at `.claude/skills/rungs/SKILL.md`; the
 CLI and files are agent-agnostic.
 
 ## Commands
 
 ```
-npm run mission                  # collect → append snapshot → render → open
-npm run mission -- --brief       # print 3-line verdict; skips collection if the
+npm run rungs                  # collect → append snapshot → render → open
+npm run rungs -- --brief       # print 3-line verdict; skips collection if the
                                  # last snapshot is <12h old (safe as a hook)
-npm run mission -- --receipt     # draft the weekly build-in-public receipt
-npm run mission -- --render-only # rebuild the page from stored data (offline)
-npm run mission -- --dry         # show what collectors return, write nothing
-npm run mission -- --discover    # scan the host project for bindable sources
-npm run mission -- --set x_followers=41 --tier browser
+npm run rungs -- --receipt     # draft the weekly build-in-public receipt
+npm run rungs -- --render-only # rebuild the page from stored data (offline)
+npm run rungs -- --dry         # show what collectors return, write nothing
+npm run rungs -- --discover    # scan the host project for bindable sources
+npm run rungs -- --set x_followers=41 --tier browser
 ```
 
-The page is `mission/out/index.html`; the receipt lands in
-`mission/out/receipt.md` — inputs done, outcomes moved (misses included),
+The page is `rungs/out/index.html`; the receipt lands in
+`rungs/out/receipt.md` — inputs done, outcomes moved (misses included),
 what changed, one next action. Post it where your audience is: recording +
 public reporting is the strongest form of progress monitoring, and it doubles
 as build-in-public content.
@@ -100,7 +100,7 @@ works and records which tier produced the value.
 | `manual` | ask the human | the agent |
 
 A node process cannot drive an MCP server or a logged-in browser, so tiers 3–5
-are collected by the agent (the `/mission` skill) and written back with
+are collected by the agent (the `/rungs` skill) and written back with
 `--set`. Metrics stuck on tiers 4–5 should have a task to move them up.
 
 ## Writing a metric
@@ -140,7 +140,8 @@ anywhere else.
 }
 ```
 
-Gates are sequential; the first unmet one is active. `stallDays` of no
+Gates are the rungs of the ladder: sequential, and the first unmet one is
+active. `stallDays` of no
 movement declares the gate stalled — the signal that the *strategy* needs
 revisiting, not that you need to try harder. The starter `mission.json` ships
 a generic solo-product ladder (ship → strangers → audience → retention →
@@ -150,11 +151,11 @@ revenue); rewrite it for your product.
 
 | file | what it is |
 |------|-----------|
-| `mission/mission.json` | goal, gates, metric declarations, stall rules — **yours** |
-| `mission/data/metrics.jsonl` | one append-only snapshot per run |
-| `mission/data/tasks.jsonl` | task ledger, each with `owner: agent \| human` and an if-then `when` |
-| `mission/data/strategy.jsonl` | strategy revisions with the evidence that forced them |
-| `mission/capabilities.json` | generated by `--discover`; `mcp`/`browser` refreshed by the agent |
+| `rungs/mission.json` | goal, gates, metric declarations, stall rules — **yours** |
+| `rungs/data/metrics.jsonl` | one append-only snapshot per run |
+| `rungs/data/tasks.jsonl` | task ledger, each with `owner: agent \| human` and an if-then `when` |
+| `rungs/data/strategy.jsonl` | strategy revisions with the evidence that forced them |
+| `rungs/capabilities.json` | generated by `--discover`; `mcp`/`browser` refreshed by the agent |
 | `docs/journal.md` | dated-bullet journal; feeds the page's timeline |
 | `docs/method.md` | the operating method and the research behind it |
 
@@ -163,11 +164,11 @@ freely; `git log` gives you a second timeline for free.
 
 ## Developing this repo
 
-The TypeScript source is `mission/cli.ts` + `mission/core/`; `npm run build`
-bundles it to `dist/cli.mjs` (what the installer ships). `npm run mission`
+The TypeScript source is `rungs/cli.ts` + `rungs/core/`; `npm run build`
+bundles it to `dist/cli.mjs` (what the installer ships). `npm run rungs`
 here runs the source via tsx; `npm test` runs the vitest suite. Requires
 Node 20+.
 
-**The extraction test:** nothing under `mission/core/` may import from a host
+**The extraction test:** nothing under `rungs/core/` may import from a host
 project. If a metric needs project code, expose it as an npm script or an
 HTTP route and declare a `shell`/`http` source instead.

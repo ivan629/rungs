@@ -82,7 +82,7 @@ function fmt(value: number | null, unit?: string): string {
   return unit ? `${rounded}${unit}` : rounded;
 }
 
-/** The starter mission.json ships with this placeholder until /mission init runs. */
+/** The starter mission.json ships with this placeholder until /rungs init runs. */
 export function unconfigured(mission: Mission): boolean {
   return mission.goal.statement.includes("MY-PRODUCT");
 }
@@ -210,13 +210,13 @@ function taskColumn(tasks: Task[], owner: "agent" | "human", title: string): str
  */
 export function summarize(mission: Mission, snapshots: Snapshot[], now: string): string {
   if (unconfigured(mission)) {
-    return "mission: not configured — run /mission init in your agent (it scans the repo, asks 3 questions, writes mission.json), or edit mission/mission.json.";
+    return "rungs: not configured — run /rungs init in your agent (it scans the repo, asks 3 questions, writes mission.json), or edit rungs/mission.json.";
   }
   const goal = latestOf(snapshots, mission.goal.metric);
   const daysLeft = daysBetween(now, mission.goal.deadline);
   const lines: string[] = [];
   lines.push(
-    `mission: ${mission.goal.statement} — ${goal.value === null ? "not measurable yet" : `${fmt(goal.value)}/${mission.goal.target}`} · ${
+    `rungs: ${mission.goal.statement} — ${goal.value === null ? "not measurable yet" : `${fmt(goal.value)}/${mission.goal.target}`} · ${
       daysLeft >= 0 ? `${daysLeft}d left` : `${-daysLeft}d PAST DEADLINE`
     }`,
   );
@@ -244,81 +244,96 @@ export function summarize(mission: Mission, snapshots: Snapshot[], now: string):
 }
 
 const STYLES = `
-:root { --bg:#fbfaf8; --fg:#1a1a19; --dim:#6b6a66; --line:#e3e0da; --card:#fff; --accent:#2e6f5e; --warn:#b25049; --up:#2e8b5f; --down:#b25049; }
-@media (prefers-color-scheme: dark) { :root { --bg:#131312; --fg:#eceae5; --dim:#8f8d87; --line:#2a2926; --card:#1b1a18; --accent:#5fb89b; } }
+:root {
+  --bg:#f6f9fc; --fg:#0a2540; --dim:#6b7c93; --line:#e3e8ee; --card:#fff;
+  --accent:#635bff; --warn:#b42318; --up:#188653; --down:#b42318;
+  --ok-bg:#d7f7c2; --ok-fg:#186429; --warn-bg:#fbe5e3; --warn-fg:#a61d10;
+  --shadow:0 1px 2px rgba(10,37,64,.06), 0 4px 12px -8px rgba(10,37,64,.12);
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg:#0c111b; --fg:#e6edf3; --dim:#8b98a9; --line:#222c3c; --card:#121a28;
+  --accent:#857dff; --warn:#f47067; --up:#3dd68c; --down:#f47067;
+  --ok-bg:rgba(61,214,140,.13); --ok-fg:#3dd68c; --warn-bg:rgba(244,112,103,.13); --warn-fg:#f47067;
+  --shadow:none;
+} }
 * { box-sizing:border-box; }
-body { margin:0; padding:2rem 1.25rem 5rem; background:var(--bg); color:var(--fg); font:15px/1.55 ui-sans-serif,-apple-system,"Segoe UI",system-ui,sans-serif; }
-main { max-width:940px; margin:0 auto; }
-h1 { font-size:1.5rem; margin:0 0 .25rem; letter-spacing:-.01em; }
-h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.09em; color:var(--dim); margin:2.75rem 0 .85rem; font-weight:600; }
-h3 { font-size:.9rem; margin:0 0 .4rem; font-weight:600; }
-.sub { color:var(--dim); margin:0 0 1.5rem; font-size:.9rem; }
-.status { font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; font-weight:600; border-radius:5px; padding:.12rem .42rem; vertical-align:middle; }
-.status-ok { color:var(--accent); border:1px solid var(--accent); }
-.status-warn { color:var(--warn); border:1px solid var(--warn); }
-.status-dim { color:var(--dim); border:1px solid var(--line); }
-.hero { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:1.4rem 1.5rem; }
-.hero .big { font-size:2.6rem; font-weight:600; letter-spacing:-.02em; line-height:1.1; }
-.hero .big small { font-size:1rem; color:var(--dim); font-weight:400; }
-.next { border:1.5px solid var(--accent); background:var(--card); border-radius:14px; padding:1rem 1.5rem; margin-top:.85rem; }
-.next-label { display:block; font-size:.68rem; text-transform:uppercase; letter-spacing:.09em; color:var(--accent); font-weight:600; margin-bottom:.3rem; }
-.next strong { font-size:1.05rem; }
-.next span { display:block; color:var(--dim); font-size:.82rem; margin-top:.25rem; }
+body { margin:0; padding:2.5rem 1.5rem 6rem; background:var(--bg); color:var(--fg); font:14px/1.6 ui-sans-serif,-apple-system,"Segoe UI","Inter",system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+main { max-width:960px; margin:0 auto; }
+h1 { font-size:1.4rem; margin:0 0 .3rem; letter-spacing:-.015em; font-weight:650; }
+h2 { font-size:.72rem; text-transform:uppercase; letter-spacing:.1em; color:var(--dim); margin:3rem 0 1rem; font-weight:600; }
+h3 { font-size:.92rem; margin:0 0 .4rem; font-weight:600; }
+.big, .value, .gate-num, .count { font-variant-numeric:tabular-nums; }
+.sub { color:var(--dim); margin:0 0 1.6rem; font-size:.85rem; }
+.status { font-size:.64rem; text-transform:uppercase; letter-spacing:.06em; font-weight:650; border-radius:999px; padding:.2rem .6rem; vertical-align:middle; }
+.status-ok { background:var(--ok-bg); color:var(--ok-fg); }
+.status-warn { background:var(--warn-bg); color:var(--warn-fg); }
+.status-dim { background:var(--line); color:var(--dim); }
+.hero { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:1.5rem 1.75rem; box-shadow:var(--shadow); }
+.hero .big { font-size:2.7rem; font-weight:650; letter-spacing:-.025em; line-height:1.1; }
+.hero .big small { font-size:1rem; color:var(--dim); font-weight:450; }
+.next { background:var(--card); border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:12px; padding:1.1rem 1.6rem; margin-top:.9rem; box-shadow:var(--shadow); }
+.next-label { display:block; font-size:.64rem; text-transform:uppercase; letter-spacing:.1em; color:var(--accent); font-weight:650; margin-bottom:.35rem; }
+.next strong { font-size:1.02rem; font-weight:650; }
+.next span { display:block; color:var(--dim); font-size:.82rem; margin-top:.28rem; }
 .next .next-when { font-style:italic; }
-.bar { height:7px; background:var(--line); border-radius:99px; overflow:hidden; margin-top:.6rem; }
+.bar { height:6px; background:var(--line); border-radius:99px; overflow:hidden; margin-top:.65rem; }
 .bar span { display:block; height:100%; background:var(--accent); border-radius:99px; }
-.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(215px,1fr)); gap:.85rem; }
-.card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:.9rem 1rem; }
-.card.is-blocked { opacity:.72; }
-.value { font-size:1.55rem; font-weight:600; margin:.1rem 0 .5rem; letter-spacing:-.01em; }
-.value .target { font-size:.8rem; color:var(--dim); font-weight:400; }
-.none { font-weight:400; color:var(--dim); }
-.value .none { font-size:.95rem; }
+.gate-done .bar span { background:var(--up); }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(215px,1fr)); gap:.9rem; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:1rem 1.1rem; box-shadow:var(--shadow); }
+.card.is-blocked { opacity:.7; box-shadow:none; }
+.value { font-size:1.5rem; font-weight:650; margin:.1rem 0 .5rem; letter-spacing:-.015em; }
+.value .target { font-size:.78rem; color:var(--dim); font-weight:450; }
+.none { font-weight:450; color:var(--dim); }
+.value .none { font-size:.92rem; }
 .hero .big .none { font-size:1.25rem; letter-spacing:0; }
 .spark { width:100%; height:32px; display:block; }
 .spark polyline { fill:none; stroke:var(--accent); stroke-width:1.6; vector-effect:non-scaling-stroke; }
-.spark line.goal { stroke:var(--dim); stroke-width:1; stroke-dasharray:3 3; opacity:.55; vector-effect:non-scaling-stroke; }
+.spark line.goal { stroke:var(--dim); stroke-width:1; stroke-dasharray:3 3; opacity:.5; vector-effect:non-scaling-stroke; }
 .spark.empty { font-size:.72rem; color:var(--dim); height:auto; }
-.tier { font-size:.62rem; text-transform:uppercase; letter-spacing:.06em; border:1px solid var(--line); border-radius:4px; padding:.05rem .3rem; color:var(--dim); vertical-align:middle; }
-.tier-browser, .tier-manual { border-color:var(--warn); color:var(--warn); }
-.stale { font-size:.68rem; color:var(--warn); }
-.blocked { font-size:.75rem; color:var(--dim); margin:.5rem 0 0; }
+.tier { font-size:.58rem; text-transform:uppercase; letter-spacing:.06em; background:var(--bg); border:1px solid var(--line); border-radius:4px; padding:.08rem .32rem; color:var(--dim); vertical-align:middle; font-weight:600; }
+.tier-browser, .tier-manual { border-color:var(--warn); color:var(--warn); background:transparent; }
+.stale { font-size:.66rem; color:var(--warn); }
+.blocked { font-size:.76rem; color:var(--dim); margin:.55rem 0 0; }
 ul.gates { list-style:none; padding:0; margin:0; }
-.gate { border-left:2px solid var(--line); padding:0 0 1.15rem 1.1rem; margin-left:.35rem; position:relative; }
+.gate { border-left:2px solid var(--line); padding:0 0 1.25rem 1.15rem; margin-left:.35rem; position:relative; }
 .gate:last-child { border-color:transparent; }
 .gate-head { display:flex; align-items:center; gap:.55rem; flex-wrap:wrap; }
+.gate-head strong { font-weight:600; }
 .gate-dot { position:absolute; left:-6px; top:.35rem; width:10px; height:10px; border-radius:99px; background:var(--line); border:2px solid var(--bg); }
-.gate-done .gate-dot { background:var(--accent); }
-.gate-active .gate-dot { background:var(--warn); }
+.gate-done .gate-dot { background:var(--up); }
+.gate-active .gate-dot { background:var(--accent); }
 .gate-locked { opacity:.55; }
-.gate-num { color:var(--dim); font-size:.82rem; margin-left:auto; }
-.stall { color:var(--warn); font-size:.78rem; margin:.45rem 0 0; }
+.gate-num { color:var(--dim); font-size:.8rem; margin-left:auto; }
+.stall { color:var(--warn-fg); font-size:.78rem; margin:.5rem 0 0; font-weight:500; }
 .kill { font-size:.75rem; color:var(--dim); margin:.4rem 0 0; }
-.gate-active .kill { color:var(--warn); }
-.gate-deadline { font-size:.72rem; color:var(--dim); }
-.gate-deadline.overdue { color:var(--warn); font-weight:600; }
-.kind-input { border-color:var(--accent); color:var(--accent); }
+.gate-active .kill { color:var(--warn-fg); }
+.gate-deadline { font-size:.7rem; color:var(--dim); }
+.gate-deadline.overdue { color:var(--warn-fg); font-weight:650; }
+.kind-input { border-color:var(--accent); color:var(--accent); background:transparent; }
 .task .when { font-style:italic; }
 .cols { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; }
 .col ul { list-style:none; padding:0; margin:0; }
-.col .count { color:var(--dim); font-weight:400; }
-.task { background:var(--card); border:1px solid var(--line); border-radius:9px; padding:.6rem .75rem; margin-bottom:.5rem; font-size:.85rem; }
+.col .count { color:var(--dim); font-weight:450; }
+.task { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:.65rem .8rem; margin-bottom:.55rem; font-size:.85rem; box-shadow:var(--shadow); }
+.task strong { font-weight:600; }
 .task span { display:block; color:var(--dim); font-size:.76rem; margin-top:.2rem; }
-.task-done { opacity:.5; }
+.task-done { opacity:.5; box-shadow:none; }
 ul.timeline { list-style:none; padding:0; margin:0; }
-.timeline .day { font-size:.72rem; color:var(--dim); margin:1rem 0 .35rem; letter-spacing:.04em; }
-.timeline .row { display:flex; gap:.6rem; padding:.22rem 0; font-size:.85rem; align-items:baseline; }
+.timeline .day { font-size:.7rem; color:var(--dim); margin:1.1rem 0 .35rem; letter-spacing:.05em; font-weight:600; }
+.timeline .row { display:flex; gap:.6rem; padding:.24rem 0; font-size:.85rem; align-items:baseline; }
 .timeline .mark { width:6px; height:6px; border-radius:99px; background:var(--line); flex:0 0 auto; margin-top:.42rem; }
 .row-up .mark { background:var(--up); } .row-down .mark { background:var(--down); }
-.row-strategy .mark { background:var(--warn); } .row-strategy { font-weight:500; }
+.row-strategy .mark { background:var(--accent); } .row-strategy { font-weight:500; }
 .rev { border-left:2px solid var(--line); padding:0 0 .9rem 1rem; font-size:.85rem; }
-.rev time { color:var(--dim); font-size:.75rem; display:block; }
+.rev time { color:var(--dim); font-size:.74rem; display:block; }
+.rev strong { font-weight:600; }
 .rev p { margin:.2rem 0 0; color:var(--dim); }
 .empty { color:var(--dim); font-size:.85rem; }
-.setup { border:1.5px solid var(--accent); background:var(--card); border-radius:14px; padding:1.4rem 1.5rem; }
+.setup { background:var(--card); border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:12px; padding:1.4rem 1.6rem; box-shadow:var(--shadow); }
 .setup ol { margin:.75rem 0 0; padding-left:1.2rem; }
-.setup li { margin:.4rem 0; }
-.setup code { background:var(--bg); border:1px solid var(--line); border-radius:5px; padding:.1rem .35rem; font-size:.85em; }
+.setup li { margin:.45rem 0; }
+.setup code { background:var(--bg); border:1px solid var(--line); border-radius:5px; padding:.1rem .35rem; font-size:.85em; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
 details summary { cursor:pointer; color:var(--dim); font-size:.8rem; margin:.4rem 0; }
 @media (max-width:620px) { .cols { grid-template-columns:1fr; } }
 `;
@@ -354,10 +369,10 @@ function renderOnboarding(mission: Mission, now: string): string {
 <div class="setup">
   <strong>Two minutes to your board:</strong>
   <ol>
-    <li>In your coding agent, run <code>/mission init</code> — it scans this repo for bindable
+    <li>In your coding agent, run <code>/rungs init</code> — it scans this repo for bindable
         sources (Stripe, Supabase, analytics, deployed URLs), asks you three questions,
-        and writes <code>mission/mission.json</code> for you.</li>
-    <li>No agent handy? Edit <code>mission/mission.json</code> yourself — the placeholder
+        and writes <code>rungs/mission.json</code> for you.</li>
+    <li>No agent handy? Edit <code>rungs/mission.json</code> yourself — the placeholder
         ladder below is a working template; see the README for metric sources.</li>
   </ol>
 </div>
@@ -417,7 +432,7 @@ export function render(input: {
       ? `<strong>${esc(next.title)}</strong>${next.when ? `<span class="next-when">when: ${esc(next.when)}</span>` : ""}${
           next.why ? `<span>${esc(next.why)}</span>` : ""
         }`
-      : `<strong class="none">none set</strong><span>run /mission in your agent — every run should end with exactly one</span>`
+      : `<strong class="none">none set</strong><span>run /rungs in your agent — every run should end with exactly one</span>`
   }
 </div>`;
 

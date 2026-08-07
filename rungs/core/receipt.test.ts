@@ -59,6 +59,6 @@ describe("receipt", () => {
     expect(out).toContain("switch pond to r/selfhosted");
     expect(out).not.toContain("ancient change");
     expect(out).toContain("Post the receipt (when: Thursday thread opens)");
-    expect(out).toContain("Tracked with mission");
+    expect(out).toContain("Tracked with Rungs");
   });
 });

@@ -90,7 +90,7 @@ export function receipt(input: {
     next ? `- ${next.title}${next.when ? ` (when: ${next.when})` : ""}` : "- no next action set",
     "",
     "—",
-    "Real numbers, misses included. Tracked with mission → https://github.com/ivan629/mission",
+    "Real numbers, misses included. Tracked with Rungs → https://github.com/ivan629/rungs",
   );
   return lines.join("\n");
 }

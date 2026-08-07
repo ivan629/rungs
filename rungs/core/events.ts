@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
-import { MISSION_DIR } from "./store.js";
+import { RUNGS_DIR } from "./store.js";
 import type { EventItem, Mission } from "./types.js";
 
 /**
@@ -10,7 +10,7 @@ import type { EventItem, Mission } from "./types.js";
 export function loadEvents(mission: Mission): EventItem[] {
   const config = mission.events;
   if (!config) return [];
-  const file = isAbsolute(config.file) ? config.file : join(MISSION_DIR, config.file);
+  const file = isAbsolute(config.file) ? config.file : join(RUNGS_DIR, config.file);
   if (!existsSync(file)) return [];
 
   const events: EventItem[] = [];

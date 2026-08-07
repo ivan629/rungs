@@ -1,10 +1,10 @@
-// npm run mission            collect → append a snapshot → render → open
-// npm run mission -- --render-only   rebuild the page from stored data (offline)
-// npm run mission -- --dry           show what collectors return, write nothing
-// npm run mission -- --brief         collect (if stale) + snapshot, print the 3-line verdict (for hooks)
-// npm run mission -- --receipt       draft the weekly build-in-public receipt from stored data
-// npm run mission -- --set x_followers=41 --tier browser
-// npm run mission -- --discover      re-scan the project for bindable sources
+// npm run rungs            collect → append a snapshot → render → open
+// npm run rungs -- --render-only   rebuild the page from stored data (offline)
+// npm run rungs -- --dry           show what collectors return, write nothing
+// npm run rungs -- --brief         collect (if stale) + snapshot, print the 3-line verdict (for hooks)
+// npm run rungs -- --receipt       draft the weekly build-in-public receipt from stored data
+// npm run rungs -- --set x_followers=41 --tier browser
+// npm run rungs -- --discover      re-scan the project for bindable sources
 
 import { execFile } from "node:child_process";
 import { collect } from "./core/collect.js";

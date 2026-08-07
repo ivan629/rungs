@@ -30,9 +30,9 @@ function task(overrides: Partial<Task>): Task {
 }
 
 describe("summarize", () => {
-  it("points an unconfigured mission at /mission init", () => {
+  it("points an unconfigured mission at /rungs init", () => {
     const placeholder = mission({ goal: { statement: "First 10 paying customers for MY-PRODUCT", metric: "customers", target: 10, deadline: "2026-11-01" } });
-    expect(summarize(placeholder, [], NOW)).toContain("/mission init");
+    expect(summarize(placeholder, [], NOW)).toContain("/rungs init");
   });
 
   it("reports the goal, the active gate, and no stall while values move", () => {
@@ -79,7 +79,7 @@ describe("render", () => {
   it("renders the guided setup page while mission.json is the placeholder", () => {
     const placeholder = mission({ goal: { statement: "First 10 paying customers for MY-PRODUCT", metric: "customers", target: 10, deadline: "2026-11-01" } });
     const html = render({ mission: placeholder, snapshots: [], ...base });
-    expect(html).toContain("/mission init");
+    expect(html).toContain("/rungs init");
     expect(html).toContain("not set up yet");
     expect(html).not.toContain("no reading");
   });

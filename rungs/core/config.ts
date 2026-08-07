@@ -1,10 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { MISSION_DIR, PROJECT_ROOT } from "./store.js";
+import { RUNGS_DIR, PROJECT_ROOT } from "./store.js";
 import type { Mission } from "./types.js";
 
 export function loadMission(): Mission {
-  return JSON.parse(readFileSync(join(MISSION_DIR, "mission.json"), "utf8")) as Mission;
+  return JSON.parse(readFileSync(join(RUNGS_DIR, "mission.json"), "utf8")) as Mission;
 }
 
 let envCache: Record<string, string> | null = null;

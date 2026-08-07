@@ -1,8 +1,8 @@
-// Mission control — portable core. Nothing in mission/core imports from the
+// Mission control — portable core. Nothing in rungs/core imports from the
 // host project; everything project-specific lives in mission.json (data) and
 // collectors.local.ts (the one file you delete when extracting).
 
-/** Collection channels, ordered by reliability. See mission/README.md. */
+/** Collection channels, ordered by reliability. See rungs/README.md. */
 export type Tier = "http" | "shell" | "mcp" | "browser" | "manual";
 
 /** Tiers a plain node process can execute. The rest need the agent. */
