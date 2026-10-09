@@ -1,5 +1,7 @@
 # Rungs
 
+[![CI](https://github.com/ivan629/rungs/actions/workflows/ci.yml/badge.svg)](https://github.com/ivan629/rungs/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/create-rungs)](https://www.npmjs.com/package/create-rungs)
+
 **Your coding agent already writes the code. Rungs makes it accountable for
 the launch.**
 
